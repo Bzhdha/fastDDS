@@ -84,6 +84,13 @@
     if (!str) return "";
     return str.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
   }
+  function safeUrl(url) {
+    if (!url || typeof url !== "string") return null;
+    try {
+      const u = new URL(url);
+      return (u.protocol === "https:" || u.protocol === "http:") ? url : null;
+    } catch (_) { return null; }
+  }
   function titre(str) {
     if (!str) return "";
     return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
@@ -460,7 +467,8 @@
 
     suggestions.forEach((feat, i) => {
       const label = feat.properties.label;
-      const highlighted = label.replace(
+      const safeLabel = esc(label);
+      const highlighted = safeLabel.replace(
         new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi"),
         "<mark>$1</mark>"
       );
@@ -613,24 +621,24 @@
     {
       // Construire les liens RDV selon les types recherchés
       const rdvCandidats = [];
-      if ($("filtre-sang").checked    && item.urlBlood)     rdvCandidats.push({ url: item.urlBlood,     label: "Sang" });
-      if ($("filtre-plasma").checked  && item.urlPlasma)    rdvCandidats.push({ url: item.urlPlasma,    label: "Plasma" });
-      if ($("filtre-plaquette").checked && item.urlPlatelets) rdvCandidats.push({ url: item.urlPlatelets, label: "Plaquettes" });
+      if ($("filtre-sang").checked    && safeUrl(item.urlBlood))     rdvCandidats.push({ url: item.urlBlood,     label: "Sang" });
+      if ($("filtre-plasma").checked  && safeUrl(item.urlPlasma))    rdvCandidats.push({ url: item.urlPlasma,    label: "Plasma" });
+      if ($("filtre-plaquette").checked && safeUrl(item.urlPlatelets)) rdvCandidats.push({ url: item.urlPlatelets, label: "Plaquettes" });
       // Fallback : n'importe quelle URL si aucun filtre ne correspond
       if (!rdvCandidats.length) {
-        const u = item.urlBlood || item.urlPlasma || item.urlPlatelets;
+        const u = safeUrl(item.urlBlood) || safeUrl(item.urlPlasma) || safeUrl(item.urlPlatelets);
         if (u) rdvCandidats.push({ url: u, label: null });
       }
       const multiType = rdvCandidats.length > 1;
       rdvCandidats.forEach(({ url, label }) => {
         const ariaLabel = `Prendre rendez-vous${label ? " don de " + label.toLowerCase() : ""} à ${esc(item.name || item.address1)}`;
         const btnLabel  = multiType && label ? ` ${label}` : "";
-        actions.push(`<a href="${esc(url)}" target="_blank" rel="noopener" class="btn-action rdv" aria-label="${ariaLabel}"><span aria-hidden="true">📅</span> RDV${btnLabel}</a>`);
+        actions.push(`<a href="${esc(url)}" target="_blank" rel="noopener noreferrer" class="btn-action rdv" aria-label="${ariaLabel}"><span aria-hidden="true">📅</span> RDV${btnLabel}</a>`);
       });
     }
     if (item.latitude && item.longitude) {
       const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${item.latitude},${item.longitude}`;
-      actions.push(`<a href="${esc(mapsUrl)}" target="_blank" rel="noopener" class="btn-action maps" aria-label="Itinéraire vers ${esc(item.name || item.address1)}">
+      actions.push(`<a href="${esc(mapsUrl)}" target="_blank" rel="noopener noreferrer" class="btn-action maps" aria-label="Itinéraire vers ${esc(item.name || item.address1)}">
         <span aria-hidden="true">🗺️</span> Itinéraire
       </a>`);
     }
@@ -688,9 +696,9 @@
       if (c.afternoonStartTime && c.afternoonEndTime)
         heures.push(`${formatHeure(c.afternoonStartTime)} – ${formatHeure(c.afternoonEndTime)}`);
 
-      const rdvLink = c.urlBlood || c.urlPlasma || c.urlPlatelet;
+      const rdvLink = safeUrl(c.urlBlood) || safeUrl(c.urlPlasma) || safeUrl(c.urlPlatelet);
       const rdvBtn = rdvLink
-        ? `<a href="${esc(rdvLink)}" target="_blank" rel="noopener" class="btn-action rdv" style="margin-top:.4rem;font-size:.82rem;padding:.3rem .7rem;" aria-label="Prendre rendez-vous pour cette séance">📅 RDV</a>`
+        ? `<a href="${esc(rdvLink)}" target="_blank" rel="noopener noreferrer" class="btn-action rdv" style="margin-top:.4rem;font-size:.82rem;padding:.3rem .7rem;" aria-label="Prendre rendez-vous pour cette séance">📅 RDV</a>`
         : "";
 
       return `<li class="session-item" aria-label="Séance le ${formatDateFR(c.date)}">
@@ -727,7 +735,7 @@
       ${badges.length ? `<div class="badges" aria-label="Types de dons">${badges.join("")}</div>` : ""}
       ${sessionItems ? `<ul class="sessions-liste" aria-label="Séances prévues">${sessionItems}</ul>` : ""}
       <div class="carte-actions">
-        ${mapsUrl ? `<a href="${esc(mapsUrl)}" target="_blank" rel="noopener" class="btn-action maps" aria-label="Itinéraire vers ${esc(item.address1)}"><span aria-hidden="true">🗺️</span> Itinéraire</a>` : ""}
+        ${mapsUrl ? `<a href="${esc(mapsUrl)}" target="_blank" rel="noopener noreferrer" class="btn-action maps" aria-label="Itinéraire vers ${esc(item.address1)}"><span aria-hidden="true">🗺️</span> Itinéraire</a>` : ""}
         <button type="button" class="btn-action lire-carte" data-lirelabel="${esc(lireLabel)}" aria-label="${esc(lireLabel)}"><span aria-hidden="true">🔊</span> Lire</button>
       </div>
     </article>`;
@@ -1213,13 +1221,15 @@
     function rdvUrl(s) {
       const gS = $("filtre-sang").checked, gP = $("filtre-plasma").checked, gPl = $("filtre-plaquette").checked;
       if (s.type === "permanent") {
-        return (gS && s.urlBlood) || (gP && s.urlPlasma) || (gPl && s.urlPlatelets)
-            || s.urlBlood || s.urlPlasma || s.urlPlatelets || null;
+        const raw = (gS && s.urlBlood) || (gP && s.urlPlasma) || (gPl && s.urlPlatelets)
+                 || s.urlBlood || s.urlPlasma || s.urlPlatelets;
+        return safeUrl(raw);
       }
       // Collecte : RDV par séance
       for (const c of (s.collections || [])) {
-        const u = (gS && c.urlBlood) || (gP && c.urlPlasma) || (gPl && c.urlPlatelet)
-               || c.urlBlood || c.urlPlasma || c.urlPlatelet;
+        const raw = (gS && c.urlBlood) || (gP && c.urlPlasma) || (gPl && c.urlPlatelet)
+                 || c.urlBlood || c.urlPlasma || c.urlPlatelet;
+        const u = safeUrl(raw);
         if (u) return u;
       }
       return null;
@@ -1648,7 +1658,7 @@
 
     function openRDV() {
       const u = rdvUrl(allSites[curIdx]);
-      if (u) { window.open(u, "_blank"); say("Ouverture de la page de rendez-vous.", listenInDetail); }
+      if (u) { window.open(u, "_blank", "noopener,noreferrer"); say("Ouverture de la page de rendez-vous.", listenInDetail); }
       else     say("Pas de lien de rendez-vous disponible pour ce lieu.", listenInDetail);
     }
 
