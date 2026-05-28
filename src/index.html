@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DonnerSang — Trouver une collecte près de chez moi</title>
+  <meta name="description" content="Trouvez facilement les prochaines collectes de sang, plasma et plaquettes proches de vous. Interface accessible aux personnes en situation de handicap.">
+  <meta name="theme-color" content="#c0392b">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="DonnerSang">
+  <meta name="format-detection" content="telephone=no">
+  <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23c0392b'/><text y='.85em' font-size='75' x='12'>🩸</text></svg>">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🩸</text></svg>">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- Lien d'évitement -->
+<a href="#resultats" class="skip-link">Aller directement aux résultats</a>
+
+<!-- EN-TÊTE -->
+<header role="banner">
+  <div class="a11y-bar" role="toolbar" aria-label="Options d'accessibilité">
+    <button class="a11y-btn" id="btn-grand-texte" aria-pressed="false" type="button">
+      <span aria-hidden="true">A+</span> Grand texte
+    </button>
+    <button class="a11y-btn" id="btn-contraste" aria-pressed="false" type="button">
+      <span aria-hidden="true">◑</span> Contraste élevé
+    </button>
+  </div>
+  <div class="container">
+    <h1>🩸 DonnerSang</h1>
+    <p class="tagline">Trouvez les prochaines collectes près de vous — sang, plasma, plaquettes</p>
+  </div>
+</header>
+
+<!-- ASSISTANT VOCAL -->
+<div id="assistant-panel" hidden role="region" aria-label="Assistant vocal Don de sang">
+  <div class="container">
+    <div class="asst-header">
+      <span class="asst-icon" aria-hidden="true">🎙️</span>
+      <span id="asst-etat">Assistant vocal</span>
+      <button id="asst-quitter" type="button" aria-label="Quitter l'assistant vocal">✕ Quitter</button>
+    </div>
+    <p id="asst-instr" aria-live="polite"></p>
+    <p id="asst-entendu" aria-live="assertive"></p>
+  </div>
+</div>
+
+<!-- FORMULAIRE DE RECHERCHE -->
+<main id="main-content">
+  <section id="recherche" aria-labelledby="titre-recherche">
+    <div class="container">
+      <h2 id="titre-recherche" class="visually-hidden">Rechercher une collecte</h2>
+
+      <!-- Adresse / Géolocalisation -->
+      <fieldset>
+        <legend>📍 Où chercher ?</legend>
+        <label for="adresse-input">Saisissez une adresse, une ville ou un code postal</label>
+        <div class="adresse-wrapper" role="combobox" aria-haspopup="listbox" aria-expanded="false" aria-owns="autocomplete-list">
+          <input
+            id="adresse-input"
+            type="search"
+            placeholder="Ex : Rennes, 35000, 12 rue de la Paix Paris…"
+            autocomplete="off"
+            autocorrect="off"
+            autocapitalize="none"
+            spellcheck="false"
+            inputmode="search"
+            enterkeyhint="search"
+            aria-autocomplete="list"
+            aria-controls="autocomplete-list"
+            aria-label="Adresse ou ville"
+          >
+          <button id="btn-micro" type="button" aria-label="Dicter l'adresse à voix haute" title="Dicter l'adresse">
+            <span aria-hidden="true">🎤</span><span id="micro-label">Dicter</span>
+          </button>
+          <button id="btn-geoloc" type="button" aria-label="Utiliser ma position GPS actuelle">
+            <span aria-hidden="true">📡</span> Ma position
+          </button>
+          <ul id="autocomplete-list" role="listbox" aria-label="Suggestions d'adresses" hidden></ul>
+        </div>
+        <!-- Backdrop transparent — capte les clics extérieurs quand la liste est ouverte -->
+        <div id="ac-backdrop" aria-hidden="true" style="display:none;position:fixed;inset:0;z-index:999;"></div>
+        <p id="geoloc-status" aria-live="polite" style="margin-top:.4rem;font-size:.9rem;color:var(--success);"></p>
+        <small class="asst-hint">💡 Cliquez sur 🎤 puis dites <strong>« Bonjour Don »</strong> pour l'assistant vocal — <strong>« Aide Don »</strong> pour l'aide — <strong>« Au revoir Don »</strong> pour quitter</small>
+      </fieldset>
+
+      <!-- Types de don -->
+      <fieldset>
+        <legend>🩸 Quel type de don ?</legend>
+        <div class="filtres-types" role="group" aria-label="Choisir le type de collecte">
+          <label class="filtre-label sang">
+            <input type="checkbox" id="filtre-sang" checked aria-label="Inclure les collectes de sang total">
+            <span aria-hidden="true">🩸</span> Sang
+          </label>
+          <label class="filtre-label plasma">
+            <input type="checkbox" id="filtre-plasma" checked aria-label="Inclure les collectes de plasma">
+            <span aria-hidden="true">💛</span> Plasma
+          </label>
+          <label class="filtre-label plaquette">
+            <input type="checkbox" id="filtre-plaquette" checked aria-label="Inclure les collectes de plaquettes">
+            <span aria-hidden="true">💜</span> Plaquettes
+          </label>
+        </div>
+      </fieldset>
+
+      <!-- Période & rayon -->
+      <fieldset>
+        <legend>📅 Période et distance</legend>
+        <div class="dates-row">
+          <div class="date-group">
+            <label for="date-debut">À partir du</label>
+            <input type="date" id="date-debut" aria-label="Date de début de recherche">
+          </div>
+          <div class="date-group">
+            <label for="date-fin">Jusqu'au</label>
+            <input type="date" id="date-fin" aria-label="Date de fin de recherche">
+          </div>
+        </div>
+        <div style="margin-top:1rem">
+          <label for="rayon-slider">Rayon de recherche</label>
+          <div class="rayon-row">
+            <input type="range" id="rayon-slider" min="5" max="100" value="30" step="5" aria-label="Rayon de recherche en kilomètres" aria-valuetext="30 kilomètres">
+            <span id="rayon-value" aria-live="polite" aria-atomic="true">30 km</span>
+          </div>
+        </div>
+      </fieldset>
+
+      <button id="btn-rechercher" type="button" aria-label="Lancer la recherche des collectes">
+        <span aria-hidden="true">🔍</span> Rechercher les collectes
+      </button>
+    </div>
+  </section>
+
+  <!-- RÉSULTATS -->
+  <section id="resultats" aria-labelledby="titre-resultats" aria-live="polite" aria-atomic="false">
+    <div class="container">
+      <h2 id="titre-resultats" class="visually-hidden">Résultats de la recherche</h2>
+
+      <!-- Message de statut (chargement, erreur, vide) -->
+      <div id="status-msg" role="status" aria-live="polite"></div>
+
+      <!-- Bandeau vocal résultats -->
+      <div id="vocal-bar" role="region" aria-label="Lecture vocale des résultats">
+        <p id="vocal-bar-txt">Résultats disponibles</p>
+        <button class="btn-vocal lire" id="btn-lire-tout" type="button" aria-label="Lire tous les résultats à voix haute">
+          <span aria-hidden="true">🔊</span> Lire les résultats
+        </button>
+        <button class="btn-vocal stop" id="btn-stop-lecture" type="button" aria-label="Arrêter la lecture vocale">
+          <span aria-hidden="true">⏹</span> Arrêter
+        </button>
+      </div>
+
+      <!-- Compteur -->
+      <p id="compteur" aria-live="polite" aria-atomic="true"></p>
+
+      <!-- Maisons du don / sites permanents -->
+      <div id="section-permanents" hidden>
+        <h3 class="section-titre" id="titre-permanents">
+          <span aria-hidden="true">🏥</span> Maisons du don &amp; sites permanents
+        </h3>
+        <div id="liste-permanents" role="list" aria-labelledby="titre-permanents"></div>
+      </div>
+
+      <!-- Collectes mobiles -->
+      <div id="section-collectes" hidden>
+        <h3 class="section-titre" id="titre-collectes">
+          <span aria-hidden="true">🚐</span> Collectes mobiles
+        </h3>
+        <div id="liste-collectes" role="list" aria-labelledby="titre-collectes"></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <p>Données : <a href="https://www.data.gouv.fr/datasets/lieux-et-horaires-des-collectes-de-sang" target="_blank" rel="noopener">Établissement Français du Sang (EFS)</a> · Licence Ouverte 2.0</p>
+  <p style="margin-top:.3rem">Interface accessible — <a href="https://accessibilite.numerique.gouv.fr/" target="_blank" rel="noopener">RGAA</a></p>
+</footer>
+
+
+<script src="app.js" defer></script>
+
+</body>
+</html>
