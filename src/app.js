@@ -10,12 +10,47 @@
   const DEBOUNCE     = 280; // ms avant appel autocomplete
 
   /* ======================================================
+     RATE LIMITER — protection contre les abus
+  ====================================================== */
+  const RateLimit = (() => {
+    const MAX      = 8;      // appels max dans la fenêtre glissante
+    const WINDOW   = 60_000; // fenêtre glissante : 60 secondes
+    const COOLDOWN = 2_000;  // délai minimum entre deux appels consécutifs
+
+    const stamps = [];
+    let lastCall = 0;
+
+    return {
+      check() {
+        const now = Date.now();
+
+        const sinceLast = now - lastCall;
+        if (lastCall && sinceLast < COOLDOWN) {
+          const wait = Math.ceil((COOLDOWN - sinceLast) / 1000);
+          return { ok: false, msg: `Patientez ${wait} seconde${wait > 1 ? "s" : ""} avant de relancer une recherche.` };
+        }
+
+        while (stamps.length && stamps[0] < now - WINDOW) stamps.shift();
+        if (stamps.length >= MAX) {
+          const wait = Math.ceil((stamps[0] + WINDOW - now) / 1000);
+          return { ok: false, msg: `Trop de recherches en peu de temps. Réessayez dans ${wait} seconde${wait > 1 ? "s" : ""}.` };
+        }
+
+        stamps.push(now);
+        lastCall = now;
+        return { ok: true };
+      }
+    };
+  })();
+
+  /* ======================================================
      ÉTAT GLOBAL
   ====================================================== */
   let lat = null, lng = null, villeNom = null;
   let autocompleteTimer = null;
   let selectedIndex = -1;
   let suggestions = [];
+  let efsController = null;
 
   /* ======================================================
      UTILITAIRES
@@ -558,7 +593,10 @@
       url = `${EFS_BASE}/samplingcollection/searchnearpoint?${params}`;
     }
 
-    const r = await fetch(url);
+    if (efsController) efsController.abort();
+    efsController = new AbortController();
+
+    const r = await fetch(url, { signal: efsController.signal });
     if (!r.ok) {
       const txt = await r.text().catch(() => "");
       throw new Error(`Erreur serveur EFS (${r.status})${txt ? " : " + txt : ""}`);
@@ -698,6 +736,9 @@
      RECHERCHE PRINCIPALE
   ====================================================== */
   async function rechercher() {
+    const rl = RateLimit.check();
+    if (!rl.ok) { showMsg("erreur", rl.msg); return; }
+
     const adresseVal = input.value.trim();
     if (!adresseVal) {
       showMsg("erreur", "Veuillez saisir une adresse ou utiliser la géolocalisation.");
@@ -735,6 +776,7 @@
       const data = await fetchEFS();
       afficherResultats(data);
     } catch (e) {
+      if (e.name === "AbortError") return;
       showMsg("erreur", "Impossible de contacter l'API EFS. Vérifiez votre connexion et réessayez.\n\nDétail : " + e.message);
     } finally {
       $("btn-rechercher").disabled = false;
@@ -1214,6 +1256,19 @@
     }
 
     async function launchSearch() {
+      const rl = RateLimit.check();
+      if (!rl.ok) {
+        say(rl.msg + " Dites « réessayer » quand vous êtes prêt.", () => {
+          hear(
+            (t, all) => {
+              if (/\b(réessayer|réessaie|retenter|oui|ok|prêt)\b/i.test(all.join(" "))) launchSearch();
+              else listenForConfirmation();
+            },
+            () => listenForConfirmation()
+          );
+        });
+        return;
+      }
       aState = "searching";
       setEtat("Recherche en cours…");
       say("Lancement de la recherche, un instant…");
@@ -1232,6 +1287,7 @@
         $("resultats").scrollIntoView({ behavior: "smooth", block: "start" });
         say(summaryText(), listenForNavigation);
       } catch (e) {
+        if (e.name === "AbortError") return;
         say("Impossible de contacter le serveur EFS. Dites « réessayer » ou « quitter ».", () => {
           hear(
             (t, all) => {
