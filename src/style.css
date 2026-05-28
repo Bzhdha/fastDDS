@@ -18,7 +18,7 @@
       --success:      #1a7a3c;
       --rayon:        8px;
       --ombre:        0 2px 8px rgba(0,0,0,.12);
-      --taille-base:  18px;
+      --taille-base:  clamp(16px, 2vw, 18px);
       --espacement:   1.6;
     }
 
@@ -60,6 +60,7 @@
       color: var(--texte);
       background: var(--fond);
       min-height: 100vh;
+      min-height: 100dvh;
     }
 
     /* ======================================================
@@ -418,6 +419,7 @@
       padding: 1.5rem 1rem 3rem;
       max-width: 760px;
       margin: 0 auto;
+      width: 100%;
     }
 
     /* Messages d'état */
@@ -808,6 +810,76 @@
   @media (max-width: 600px) {
     #assistant-panel .container { padding: .85rem 1rem; }
   }
+
+/* ======================================================
+   RESPONSIVE TABLETTE (≥ 768px)
+====================================================== */
+@media (min-width: 768px) {
+  /* Formulaire : champ adresse pleine largeur, types + période côte à côte */
+  #recherche .container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    align-items: start;
+  }
+  #recherche fieldset:first-of-type,
+  #btn-rechercher { grid-column: 1 / -1; }
+
+  /* Barre d'accessibilité : plus d'espace */
+  .a11y-btn { font-size: .9rem; padding: .35rem .9rem; }
+}
+
+/* ======================================================
+   RESPONSIVE DESKTOP (≥ 1024px)
+====================================================== */
+@media (min-width: 1024px) {
+  /* Conteneur résultats : libérer la largeur */
+  #resultats {
+    max-width: 1280px;
+    padding: 2rem 2.5rem 4rem;
+  }
+  #resultats .container {
+    max-width: 1280px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 2.5rem;
+    align-items: start;
+  }
+
+  /* Éléments pleine largeur dans la grille résultats */
+  #status-msg,
+  #vocal-bar,
+  #compteur           { grid-column: 1 / -1; }
+
+  /* Permanents à gauche, collectes à droite */
+  #section-permanents { grid-column: 1; }
+  #section-collectes  { grid-column: 2; }
+  #section-permanents .section-titre,
+  #section-collectes  .section-titre { margin-top: 0; }
+
+  /* Header : plus grand sur desktop */
+  header h1   { font-size: 2.2rem; }
+  header .tagline { font-size: 1.1rem; }
+
+  /* Formulaire : 3 colonnes (types + dates + rayon) */
+  #recherche .container {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+  #recherche fieldset:first-of-type,
+  #btn-rechercher { grid-column: 1 / -1; }
+}
+
+/* ======================================================
+   CIBLES TACTILES (écrans touch)
+====================================================== */
+@media (pointer: coarse) {
+  .a11y-btn      { min-height: 44px; }
+  .btn-action    { min-height: 44px; }
+  .btn-vocal     { min-height: 44px; }
+  .filtre-label  { min-height: 44px; padding: .65rem 1rem; }
+  #btn-micro,
+  #btn-geoloc    { min-height: 48px; }
+}
 
 /* ======================================================
    UTILITAIRE RGAA
