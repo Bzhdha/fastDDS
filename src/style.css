@@ -812,6 +812,62 @@
   }
 
 /* ======================================================
+   CARTE LEAFLET
+====================================================== */
+#section-carte {
+  border-bottom: 2px solid var(--bordure);
+}
+#carte-map {
+  height: 280px;
+  width: 100%;
+  background: #e0e8ef;
+}
+/* Marqueurs emoji */
+.map-marker-perm,
+.map-marker-coll {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.6rem;
+  line-height: 1;
+  filter: drop-shadow(0 1px 4px rgba(0,0,0,.45));
+}
+/* Popups */
+.map-popup .leaflet-popup-content-wrapper {
+  border-radius: var(--rayon);
+  box-shadow: var(--ombre);
+  padding: .1rem;
+}
+.popup-titre {
+  font-weight: 700;
+  font-size: .92rem;
+  color: var(--texte);
+  margin-bottom: .25rem;
+}
+.popup-adresse {
+  font-size: .82rem;
+  color: var(--texte-sec);
+  margin-bottom: .55rem;
+}
+.popup-voir {
+  display: inline-block;
+  background: var(--rouge);
+  color: #fff;
+  border: none;
+  border-radius: var(--rayon);
+  padding: .35rem .8rem;
+  font-size: .85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background .15s;
+}
+.popup-voir:hover { background: var(--rouge-fonce); }
+
+/* Hauteurs responsive */
+@media (min-width: 768px)  { #carte-map { height: 360px; } }
+@media (min-width: 1024px) { #carte-map { height: 460px; } }
+
+/* ======================================================
    RESPONSIVE TABLETTE (≥ 768px)
 ====================================================== */
 @media (min-width: 768px) {

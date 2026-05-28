@@ -375,6 +375,7 @@
         lat = pos.coords.latitude;
         lng = pos.coords.longitude;
         villeNom = null;
+        if (carteOk) map.setView([lat, lng], 13);
         $("geoloc-status").style.color = "var(--success)";
         $("geoloc-status").textContent = "📡 Position récupérée, identification de la ville…";
 
@@ -811,6 +812,8 @@
       permanents.sort((a, b) => (a.distance || 99) - (b.distance || 99));
       $("liste-permanents").innerHTML = permanents.map(renderPermanent).join("");
       $("section-permanents").hidden = false;
+      $("liste-permanents").querySelectorAll(".carte")
+        .forEach((el, i) => el.setAttribute("data-map-id", `p-${i}`));
     }
     if (nbColl) {
       collectes.sort((a, b) => {
@@ -820,7 +823,11 @@
       });
       $("liste-collectes").innerHTML = collectes.map(renderCollecte).join("");
       $("section-collectes").hidden = false;
+      $("liste-collectes").querySelectorAll(".carte")
+        .forEach((el, i) => el.setAttribute("data-map-id", `c-${i}`));
     }
+
+    updateMapMarkers(permanents, collectes);
 
     // Afficher le bandeau vocal si TTS disponible
     if (TTS) {
@@ -877,6 +884,123 @@
   function hideMsg() {
     $("status-msg").style.display = "none";
     $("status-msg").className = "";
+  }
+
+  /* ======================================================
+     CARTE LEAFLET
+  ====================================================== */
+  const MAP_FRANCE = [46.23, 2.21];
+  const MAP_ZOOM   = 6;
+  const MAX_MARQUEURS = 8;
+
+  const carteOk = typeof L !== "undefined";
+  let map, markersLayer;
+
+  if (carteOk) {
+    map = L.map("carte-map", {
+      center: MAP_FRANCE,
+      zoom: MAP_ZOOM,
+      keyboard: true,
+      scrollWheelZoom: false,   // activé seulement quand la carte a le focus clavier
+    });
+
+    map.on("focus", () => map.scrollWheelZoom.enable());
+    map.on("blur",  () => map.scrollWheelZoom.disable());
+
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>',
+      maxZoom: 18,
+    }).addTo(map);
+
+    markersLayer = L.layerGroup().addTo(map);
+
+    // Centrage silencieux si la permission géoloc est déjà accordée
+    if (navigator.permissions) {
+      navigator.permissions.query({ name: "geolocation" }).then(r => {
+        if (r.state === "granted") {
+          navigator.geolocation.getCurrentPosition(
+            pos => map.setView([pos.coords.latitude, pos.coords.longitude], 12),
+            () => {}
+          );
+        }
+      }).catch(() => {});
+    }
+  }
+
+  const iconPerm = carteOk ? L.divIcon({
+    className:    "map-marker-perm",
+    html:         '<span aria-hidden="true">🏥</span>',
+    iconSize:     [36, 36],
+    iconAnchor:   [18, 36],
+    popupAnchor:  [0, -38],
+  }) : null;
+
+  const iconColl = carteOk ? L.divIcon({
+    className:    "map-marker-coll",
+    html:         '<span aria-hidden="true">🚐</span>',
+    iconSize:     [36, 36],
+    iconAnchor:   [18, 36],
+    popupAnchor:  [0, -38],
+  }) : null;
+
+  function scrollToCard(mapId) {
+    const card = document.querySelector(`[data-map-id="${CSS.escape(mapId)}"]`);
+    if (!card) return;
+    card.scrollIntoView({ behavior: "smooth", block: "center" });
+    card.classList.add("asst-active");
+    card.setAttribute("tabindex", "-1");
+    card.focus({ preventScroll: true });
+    setTimeout(() => { card.classList.remove("asst-active"); card.removeAttribute("tabindex"); }, 2000);
+  }
+
+  function updateMapMarkers(permanents, collectes) {
+    if (!carteOk) return;
+    markersLayer.clearLayers();
+
+    // Fusion et sélection des 8 premiers items avec coordonnées
+    const candidats = [
+      ...permanents.map(s => ({ ...s, _type: "perm" })),
+      ...collectes.map(s  => ({ ...s, _type: "coll" })),
+    ].filter(s => s.latitude && s.longitude).slice(0, MAX_MARQUEURS);
+
+    const bounds = [];
+    candidats.forEach((item, i) => {
+      const isPerm = item._type === "perm";
+      const nom    = item.name || item.address1 || item.convocationLabel || "";
+      const adresse = `${item.address1 || ""}, ${item.city || ""}`.trim().replace(/^,|,$/g, "");
+      const mapId  = `${isPerm ? "p" : "c"}-${isPerm
+        ? permanents.indexOf(permanents.find(p => p === item) ?? permanents[i])
+        : collectes.indexOf(collectes.find(c => c === item) ?? collectes[i - permanents.filter(p => p.latitude && p.longitude).slice(0, MAX_MARQUEURS).length])}`;
+
+      const popup = L.popup({ maxWidth: 240, className: "map-popup" });
+      const marker = L.marker([item.latitude, item.longitude], {
+        icon:  isPerm ? iconPerm : iconColl,
+        title: nom,
+        alt:   `${isPerm ? "Site permanent" : "Collecte mobile"} : ${nom}`,
+      }).bindPopup(popup);
+
+      marker.on("popupopen", () => {
+        popup.setContent(
+          `<div class="popup-titre">${esc(nom)}</div>` +
+          `<div class="popup-adresse">${esc(adresse)}</div>` +
+          `<button class="popup-voir">Voir la fiche</button>`
+        );
+        setTimeout(() => {
+          popup.getElement()?.querySelector(".popup-voir")
+            ?.addEventListener("click", () => { marker.closePopup(); scrollToCard(mapId); });
+        }, 0);
+      });
+
+      marker.addTo(markersLayer);
+      bounds.push([item.latitude, item.longitude]);
+    });
+
+    if (bounds.length) map.fitBounds(bounds, { padding: [48, 48], maxZoom: 14 });
+
+    const nb = candidats.length;
+    $("carte-desc").textContent = nb
+      ? `${nb} marqueur${nb > 1 ? "s" : ""} affiché${nb > 1 ? "s" : ""} sur la carte.`
+      : "Aucun lieu géolocalisé à afficher sur la carte.";
   }
 
   /* ======================================================
