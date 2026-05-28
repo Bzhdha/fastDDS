@@ -21,5 +21,23 @@ html = html.replace(
     f'<script>\n{js}\n</script>'
 )
 
+# Replace the strict src/ CSP with a monolithic-compatible one (unsafe-inline needed for inlined scripts/styles)
+import re
+csp_built = (
+    "default-src 'none'; "
+    "script-src 'self' 'unsafe-inline' https://unpkg.com; "
+    "style-src 'self' 'unsafe-inline' https://unpkg.com; "
+    "img-src 'self' https://*.tile.openstreetmap.org data:; "
+    "connect-src https://oudonner.api.efs.sante.fr https://api-adresse.data.gouv.fr; "
+    "frame-ancestors 'none'; "
+    "base-uri 'self'; "
+    "form-action 'none';"
+)
+html = re.sub(
+    r'<meta http-equiv="Content-Security-Policy"[^>]*>',
+    f'<meta http-equiv="Content-Security-Policy" content="{csp_built}">',
+    html,
+)
+
 OUT.write_text(html, encoding="utf-8")
 print(f"✓ {OUT}  ({OUT.stat().st_size // 1024} Ko)")
