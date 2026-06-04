@@ -675,12 +675,12 @@
     ====================================================== */
 
     /* Grand texte */
-    body.grand-texte {
+    html.grand-texte {
       font-size: 21px;
     }
 
     /* Contraste élevé */
-    body.contraste-eleve {
+    html.contraste-eleve {
       --texte:     #000;
       --texte-sec: #111;
       --fond:      #fff;
@@ -692,7 +692,7 @@
       --plaquette: #5c0a8e;
       --bordure:   #000;
     }
-    body.contraste-eleve .carte { border-width: 3px; }
+    html.contraste-eleve .carte { border-width: 3px; }
 
     /* Lecture seule / pas de mouvement */
     @media (prefers-reduced-motion: reduce) {
@@ -1149,7 +1149,7 @@
 
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV/XN/WLcE=" crossorigin="" defer></script>
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV/XN/WLcE=" crossorigin=""></script>
 <script>
 (function () {
   "use strict";
@@ -1263,11 +1263,11 @@
      ACCESSIBILITÉ — grand texte / contraste
   ====================================================== */
   $("btn-grand-texte").addEventListener("click", function () {
-    const on = document.body.classList.toggle("grand-texte");
+    const on = document.documentElement.classList.toggle("grand-texte");
     this.setAttribute("aria-pressed", on);
   });
   $("btn-contraste").addEventListener("click", function () {
-    const on = document.body.classList.toggle("contraste-eleve");
+    const on = document.documentElement.classList.toggle("contraste-eleve");
     this.setAttribute("aria-pressed", on);
   });
 
@@ -2110,23 +2110,18 @@
     if (!carteOk) return;
     markersLayer.clearLayers();
 
-    // Fusion et sélection des 8 premiers items avec coordonnées
-    const candidats = [
-      ...permanents.map(s => ({ ...s, _type: "perm" })),
-      ...collectes.map(s  => ({ ...s, _type: "coll" })),
-    ].filter(s => s.latitude && s.longitude).slice(0, MAX_MARQUEURS);
-
     const bounds = [];
-    candidats.forEach((item, i) => {
-      const isPerm = item._type === "perm";
-      const nom    = item.name || item.address1 || item.convocationLabel || "";
-      const adresse = `${item.address1 || ""}, ${item.city || ""}`.trim().replace(/^,|,$/g, "");
-      const mapId  = `${isPerm ? "p" : "c"}-${isPerm
-        ? permanents.indexOf(permanents.find(p => p === item) ?? permanents[i])
-        : collectes.indexOf(collectes.find(c => c === item) ?? collectes[i - permanents.filter(p => p.latitude && p.longitude).slice(0, MAX_MARQUEURS).length])}`;
+    let count = 0;
 
-      const popup = L.popup({ maxWidth: 240, className: "map-popup" });
-      const marker = L.marker([item.latitude, item.longitude], {
+    function ajouterMarqueur(item, mapId, isPerm) {
+      if (!item.latitude || !item.longitude) return;
+      if (count >= MAX_MARQUEURS) return;
+      count++;
+
+      const nom     = item.name || item.address1 || item.convocationLabel || "";
+      const adresse = [item.address1, item.city].filter(Boolean).join(", ");
+      const popup   = L.popup({ maxWidth: 240, className: "map-popup" });
+      const marker  = L.marker([item.latitude, item.longitude], {
         icon:  isPerm ? iconPerm : iconColl,
         title: nom,
         alt:   `${isPerm ? "Site permanent" : "Collecte mobile"} : ${nom}`,
@@ -2146,13 +2141,15 @@
 
       marker.addTo(markersLayer);
       bounds.push([item.latitude, item.longitude]);
-    });
+    }
+
+    permanents.forEach((item, i) => ajouterMarqueur(item, `p-${i}`, true));
+    collectes.forEach((item, i)  => ajouterMarqueur(item, `c-${i}`, false));
 
     if (bounds.length) map.fitBounds(bounds, { padding: [48, 48], maxZoom: 14 });
 
-    const nb = candidats.length;
-    $("carte-desc").textContent = nb
-      ? `${nb} marqueur${nb > 1 ? "s" : ""} affiché${nb > 1 ? "s" : ""} sur la carte.`
+    $("carte-desc").textContent = count
+      ? `${count} marqueur${count > 1 ? "s" : ""} affiché${count > 1 ? "s" : ""} sur la carte.`
       : "Aucun lieu géolocalisé à afficher sur la carte.";
   }
 

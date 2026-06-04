@@ -659,12 +659,12 @@
     ====================================================== */
 
     /* Grand texte */
-    body.grand-texte {
+    html.grand-texte {
       font-size: 21px;
     }
 
     /* Contraste élevé */
-    body.contraste-eleve {
+    html.contraste-eleve {
       --texte:     #000;
       --texte-sec: #111;
       --fond:      #fff;
@@ -676,7 +676,7 @@
       --plaquette: #5c0a8e;
       --bordure:   #000;
     }
-    body.contraste-eleve .carte { border-width: 3px; }
+    html.contraste-eleve .carte { border-width: 3px; }
 
     /* Lecture seule / pas de mouvement */
     @media (prefers-reduced-motion: reduce) {
